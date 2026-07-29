@@ -3,8 +3,19 @@ import { calculate } from './calculations'
 import { defaults, presets, volumePresets } from './defaults'
 import { AutoReadout, CategoryToggle, Field, Metric, Section, ToggleField, Tooltip, type SetInput } from './components/Form'
 import type { Inputs, Scenario } from './types'
+import logotypeWhite from './assets/brand/logotype-white.svg'
 
 const STORAGE_KEY = 'macroscope-roi-inputs-v1'
+const THEME_KEY = 'macroscope-roi-theme'
+type Theme = 'light' | 'dark'
+
+function loadTheme(): Theme {
+  try {
+    const saved = localStorage.getItem(THEME_KEY)
+    if (saved === 'light' || saved === 'dark') return saved
+  } catch { /* Ignore unavailable storage. */ }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
 const pct = (value: number | null) => value === null ? 'Not available' : `${number.format(value)}%`
@@ -28,6 +39,7 @@ export function hasPrDoubleCountingRisk(inputs: Pick<Inputs, 'prsPerMonth' | 'au
 
 function App() {
   const [inputs, setInputs] = useState<Inputs>(loadInputs)
+  const [theme, setTheme] = useState<Theme>(loadTheme)
   const results = useMemo(() => calculate(inputs), [inputs])
   const roleTotalValid = inputs.meetingManagerPct + inputs.meetingEngineerPct === 100
   const overlapRisk = hasPrDoubleCountingRisk(inputs)
@@ -35,6 +47,13 @@ function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs))
   }, [inputs])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem(THEME_KEY, theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme((current) => current === 'dark' ? 'light' : 'dark')
 
   const setInput: SetInput = (key, value) => setInputs((current) => ({ ...current, [key]: value }))
   const setScenario = (field: 'defectEscapePct' | 'defectCost', scenario: Scenario, value: number) =>
@@ -91,9 +110,19 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
       <header className="hero">
         <nav>
           <a className="brand" href="#top" aria-label="Macroscope ROI calculator home">
-            <span className="brand-mark">M</span><span>MACROSCOPE</span>
+            <img className="brand-logo" src={logotypeWhite} alt="Macroscope" />
           </a>
-          <span className="saved"><i /> Saved locally</span>
+          <div className="nav-actions">
+            <span className="saved"><i /> Saved locally</span>
+            <button
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {theme === 'dark' ? '☀' : '☾'}
+            </button>
+          </div>
         </nav>
         <div className="hero-content" id="top">
           <div>
@@ -402,7 +431,7 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
           <div><button className="secondary" onClick={() => window.print()}>Print results</button><button className="primary" onClick={exportSummary}>Export summary ↓</button></div>
         </div>
       </main>
-      <footer><span className="brand"><span className="brand-mark">M</span><span>MACROSCOPE</span></span><p>Conservative ROI modeling for engineering organizations.</p><small>Estimates only. Not a guarantee of results.</small></footer>
+      <footer><span className="brand"><img className="brand-logo" src={logotypeWhite} alt="Macroscope" /></span><p>Conservative ROI modeling for engineering organizations.</p><small>Estimates only. Not a guarantee of results.</small></footer>
     </>
   )
 }

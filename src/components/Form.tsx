@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { Inputs } from '../types'
 
 export type SetInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => void
@@ -97,7 +98,33 @@ export function Section({
 }
 
 export function Tooltip({ text }: { text: string }) {
-  return <span className="tooltip" tabIndex={0} aria-label={text}>?</span>
+  const [coords, setCoords] = useState<{ top: number, left: number } | null>(null)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  const show = () => {
+    const rect = ref.current?.getBoundingClientRect()
+    if (rect) setCoords({ top: rect.top, left: rect.left + rect.width / 2 })
+  }
+  const hide = () => setCoords(null)
+
+  return (
+    <>
+      <span
+        ref={ref}
+        className="tooltip"
+        tabIndex={0}
+        aria-label={text}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >?</span>
+      {coords && createPortal(
+        <div className="tooltip-popup" role="tooltip" style={{ top: coords.top, left: coords.left }}>{text}</div>,
+        document.body,
+      )}
+    </>
+  )
 }
 
 export function AutoReadout({ label, value }: { label: string, value: string }) {
