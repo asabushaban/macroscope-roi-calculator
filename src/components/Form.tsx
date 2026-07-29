@@ -63,6 +63,15 @@ export function Tooltip({ text }: { text: string }) {
   return <span className="tooltip" tabIndex={0} aria-label={text}>?</span>
 }
 
+export function AutoReadout({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="auto-readout">
+      <span>{label}</span>
+      <b>{value}</b>
+    </div>
+  )
+}
+
 export function Metric({ label, value, note, tone = 'neutral', prominent = false }: {
   label: ReactNode
   value: string

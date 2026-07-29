@@ -1,6 +1,23 @@
-import type { CategoryResult, Inputs, Results, Scenario } from './types'
+import type { AutoVolumes, CategoryResult, Inputs, Results, Scenario } from './types'
 
 const safe = (value: number) => Math.max(0, Number.isFinite(value) ? value : 0)
+
+// Meetings and auto-approved PRs are excluded: meeting cadence doesn't scale
+// linearly with headcount, and auto-approval volume is pilot-specific, not a team average.
+export function autoVolumes(i: Pick<Inputs,
+  'engineers' | 'managers' | 'prsPerEngineerPerMonth' | 'reportsPerManagerPerMonth' |
+  'researchQuestionsPerEngineerPerMonth' | 'interruptionsPerEngineerPerMonth' | 'checksPerEngineerPerMonth'
+>): AutoVolumes {
+  const engineers = safe(i.engineers)
+  const managers = safe(i.managers)
+  return {
+    prsPerMonth: Math.round(engineers * safe(i.prsPerEngineerPerMonth)),
+    reportsPerMonth: Math.round(managers * safe(i.reportsPerManagerPerMonth)),
+    researchPerMonth: Math.round(engineers * safe(i.researchQuestionsPerEngineerPerMonth)),
+    interruptionsPerMonth: Math.round(engineers * safe(i.interruptionsPerEngineerPerMonth)),
+    checksPerMonth: Math.round(engineers * safe(i.checksPerEngineerPerMonth)),
+  }
+}
 export const hourlyLoadedCost = (annual: number, weeks: number, hours: number) =>
   weeks > 0 && hours > 0 ? safe(annual) / weeks / hours : 0
 
@@ -36,7 +53,9 @@ export const roiMetrics = (totalValue: number, annualCost: number) => {
 export const fteCapacity = (hours: number, productiveHours: number) =>
   productiveHours > 0 ? safe(hours) / productiveHours : 0
 
-export function calculate(i: Inputs): Results {
+export function calculate(rawInputs: Inputs): Results {
+  const volumes = autoVolumes(rawInputs)
+  const i = rawInputs.volumeMode === 'auto' ? { ...rawInputs, ...volumes } : rawInputs
   const calculatedEngineerRate = hourlyLoadedCost(i.engineerAnnualCost, i.workingWeeks, i.workingHours)
   const calculatedManagerRate = hourlyLoadedCost(i.managerAnnualCost, i.workingWeeks, i.workingHours)
   const engineerHourly = i.engineerHourlyOverride > 0 ? i.engineerHourlyOverride : calculatedEngineerRate
@@ -91,6 +110,6 @@ export function calculate(i: Inputs): Results {
     engineerHourly, managerHourly, directSavings: cash, categories, annualHours, capacityValue,
     totalValue, annualCost, netValue: metrics.net, roi: metrics.roi, payback: metrics.payback,
     fte: fteCapacity(annualHours, productiveHours), potential, hiringFte, expandedValue,
-    expandedNet: expandedMetrics.net, expandedRoi: expandedMetrics.roi,
+    expandedNet: expandedMetrics.net, expandedRoi: expandedMetrics.roi, autoVolumes: volumes,
   }
 }

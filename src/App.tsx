@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { calculate } from './calculations'
-import { defaults, presets } from './defaults'
-import { Field, Metric, Section, Tooltip, type SetInput } from './components/Form'
+import { defaults, presets, volumePresets } from './defaults'
+import { AutoReadout, Field, Metric, Section, Tooltip, type SetInput } from './components/Form'
 import type { Inputs, Scenario } from './types'
 
 const STORAGE_KEY = 'macroscope-roi-inputs-v1'
@@ -42,6 +42,9 @@ function App() {
 
   const applyPreset = (name: keyof typeof presets) =>
     setInputs((current) => ({ ...current, ...presets[name] }))
+
+  const applyVolumePreset = (name: keyof typeof volumePresets) =>
+    setInputs((current) => ({ ...current, ...volumePresets[name] }))
 
   const reset = () => {
     if (window.confirm('Reset all calculator inputs to their defaults?')) {
@@ -137,6 +140,26 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
             <div><span>CALCULATED MANAGER RATE <Tooltip text="Annual loaded cost divided by productive weeks and hours." /></span><b>{currency.format(results.managerHourly)} / hr</b></div>
             <Field label="Override manager rate (optional)" name="managerHourlyOverride" value={inputs.managerHourlyOverride} setInput={setInput} prefix="$" suffix="/ hr" />
           </div>
+          <div className="volume-mode">
+            <div>
+              <b>Measurable capacity volumes <Tooltip text="Controls how PR review, reporting, research, interruption, and manual-check volumes in section 03 are determined." /></b>
+              <span>Auto-calculate multiplies team-average rates below by your headcount above, instead of entering each monthly total by hand.</span>
+            </div>
+            <div className="segmented">
+              <button className={inputs.volumeMode === 'manual' ? 'active' : ''} onClick={() => setInput('volumeMode', 'manual')}>Manual entry</button>
+              <button className={inputs.volumeMode === 'auto' ? 'active' : ''} onClick={() => setInput('volumeMode', 'auto')}>Auto-calculate</button>
+            </div>
+          </div>
+          {inputs.volumeMode === 'auto' && (
+            <div className="volume-presets">
+              <span>Team-average benchmark:</span>
+              <div className="preset-buttons">
+                <button onClick={() => applyVolumePreset('conservative')}>Conservative</button>
+                <button onClick={() => applyVolumePreset('typical')}>Typical</button>
+                <button onClick={() => applyVolumePreset('highVelocity')}>High-velocity</button>
+              </div>
+            </div>
+          )}
         </Section>
 
         <Section number="02" title="Direct cash savings" eyebrow="HIGH CONFIDENCE" className="cash-section">
@@ -176,7 +199,14 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
             <details>
               <summary><b>B</b><span>Status report preparation<small>{number.format(results.categories.reporting.hours)} hours · {currency.format(results.categories.reporting.value)}</small></span></summary>
               <div className="grid four">
-                <Field label="Reports / month" name="reportsPerMonth" value={inputs.reportsPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Reports / month (auto)" value={number.format(results.autoVolumes.reportsPerMonth)} />
+                    <Field label="Reports / manager / month" name="reportsPerManagerPerMonth" value={inputs.reportsPerManagerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Reports / month" name="reportsPerMonth" value={inputs.reportsPerMonth} setInput={setInput} />
+                )}
                 <Field label="Preparation time / report" name="reportPrepHours" value={inputs.reportPrepHours} setInput={setInput} suffix="hours" step={0.25} />
                 <Field label="People involved" name="reportPeople" value={inputs.reportPeople} setInput={setInput} />
                 <label className="field"><span className="field-label">Role performing work</span><select value={inputs.reportRole} onChange={e => setInput('reportRole', e.target.value as Inputs['reportRole'])}><option value="engineer">Engineer</option><option value="manager">Engineering manager</option><option value="custom">Custom blended rate</option></select></label>
@@ -186,7 +216,14 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
             <details>
               <summary><b>C</b><span>Human PR review time reduced<small>{number.format(results.categories.prReview.hours)} hours · {currency.format(results.categories.prReview.value)}</small></span></summary>
               <div className="grid four">
-                <Field label="PRs reviewed / month" name="prsPerMonth" value={inputs.prsPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="PRs reviewed / month (auto)" value={number.format(results.autoVolumes.prsPerMonth)} />
+                    <Field label="PRs / engineer / month" name="prsPerEngineerPerMonth" value={inputs.prsPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="PRs reviewed / month" name="prsPerMonth" value={inputs.prsPerMonth} setInput={setInput} />
+                )}
                 <Field label="Current review time / PR" name="reviewMinutes" value={inputs.reviewMinutes} setInput={setInput} suffix="min" />
                 <Field label="Minutes saved / PR" name="reviewMinutesSaved" value={inputs.reviewMinutesSaved} setInput={setInput} suffix="min" />
                 <Field label="Human reviewers / PR" name="reviewers" value={inputs.reviewers} setInput={setInput} step={0.1} />
@@ -206,7 +243,14 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
             <details>
               <summary><b>E</b><span>Codebase research time reduced<small>{number.format(results.categories.research.hours)} hours · {currency.format(results.categories.research.value)}</small></span></summary>
               <div className="grid three">
-                <Field label="Questions / investigations monthly" name="researchPerMonth" value={inputs.researchPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Questions / month (auto)" value={number.format(results.autoVolumes.researchPerMonth)} />
+                    <Field label="Questions / engineer / month" name="researchQuestionsPerEngineerPerMonth" value={inputs.researchQuestionsPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Questions / investigations monthly" name="researchPerMonth" value={inputs.researchPerMonth} setInput={setInput} />
+                )}
                 <Field label="Manual research time" name="researchMinutes" value={inputs.researchMinutes} setInput={setInput} suffix="min" />
                 <Field label="Estimated time saved" name="researchMinutesSaved" value={inputs.researchMinutesSaved} setInput={setInput} suffix="min" />
               </div>
@@ -215,7 +259,14 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
               <summary><b>F</b><span>Engineer interruptions avoided<small>{number.format(results.categories.interruptions.hours)} hours · {currency.format(results.categories.interruptions.value)}</small></span></summary>
               <p className="helper">Use only when Macroscope replaces asking another engineer—not when research savings already capture the same work.</p>
               <div className="grid four">
-                <Field label="Interruptions avoided / month" name="interruptionsPerMonth" value={inputs.interruptionsPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Interruptions / month (auto)" value={number.format(results.autoVolumes.interruptionsPerMonth)} />
+                    <Field label="Interruptions / engineer / month" name="interruptionsPerEngineerPerMonth" value={inputs.interruptionsPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Interruptions avoided / month" name="interruptionsPerMonth" value={inputs.interruptionsPerMonth} setInput={setInput} />
+                )}
                 <Field label="Interruption duration" name="interruptionMinutes" value={inputs.interruptionMinutes} setInput={setInput} suffix="min" />
                 <Field label="Context-switch recovery" name="recoveryMinutes" value={inputs.recoveryMinutes} setInput={setInput} suffix="min" />
                 <Field label="Engineers interrupted" name="engineersInterrupted" value={inputs.engineersInterrupted} setInput={setInput} />
@@ -225,7 +276,14 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
               <summary><b>G</b><span>Existing manual checks automated<small>{number.format(results.categories.manualChecks.hours)} hours · {currency.format(results.categories.manualChecks.value)}</small></span></summary>
               <p className="helper">Only existing manual checks represent labor savings. Newly added checks are additional coverage.</p>
               <div className="grid three">
-                <Field label="Existing checks / month" name="checksPerMonth" value={inputs.checksPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Existing checks / month (auto)" value={number.format(results.autoVolumes.checksPerMonth)} />
+                    <Field label="Checks / engineer / month" name="checksPerEngineerPerMonth" value={inputs.checksPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Existing checks / month" name="checksPerMonth" value={inputs.checksPerMonth} setInput={setInput} />
+                )}
                 <Field label="Manual minutes / check" name="checkMinutes" value={inputs.checkMinutes} setInput={setInput} suffix="min" />
                 <Field label="Manual work eliminated" name="checkPctEliminated" value={inputs.checkPctEliminated} setInput={setInput} suffix="%" max={100} />
               </div>
@@ -333,6 +391,7 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
             <p><b>Capacity value</b> represents the loaded value of employee time returned to higher-value work. It is not necessarily payroll savings or headcount reduction.</p>
             <p><b>Potential impact</b> depends on assumptions about downstream outcomes. It is kept separate and should be validated through a pilot.</p>
             <p><b>Customer-specific data</b> should be used wherever possible. Example presets are illustrative, not benchmarks.</p>
+            <p><b>Auto-calculated volumes</b> (section 03) multiply your organization profile's engineer or manager count by a team-average monthly rate, instead of requiring an org-wide total. The "Typical" benchmark uses ~15 PRs reviewed per engineer per month, in line with LinearB's 2025 engineering benchmarks (median teams ~12/month, "good" teams 13-22/month). Interruption frequency is deliberately a small fraction of general context-switching research (12-15 switches/day per developer, per UC Irvine/Gloria Mark-style studies), since this field only covers interruptions Macroscope specifically eliminates. Reporting, research-question, and manual-check rates scale this calculator's own conservative baseline rather than a single external benchmark. Meeting cadence and auto-approved PR volume are intentionally excluded from auto-calculation since they don't scale linearly with headcount.</p>
             <p><b>Double counting</b> is avoided through separate categories and warnings, but users should confirm that the same work or outcome is not entered more than once.</p>
             <p><b>No guarantee.</b> Results are estimates based entirely on the inputs provided and should not be interpreted as guaranteed savings or outcomes.</p>
           </div>

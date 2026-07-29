@@ -1,10 +1,17 @@
 export type Scenario = 'conservative' | 'expected' | 'high'
 export type ReportRole = 'engineer' | 'manager' | 'custom'
 export type CostMode = 'simple' | 'detailed'
+export type VolumeMode = 'manual' | 'auto'
 
 export interface Inputs {
   engineers: number
   managers: number
+  volumeMode: VolumeMode
+  prsPerEngineerPerMonth: number
+  reportsPerManagerPerMonth: number
+  researchQuestionsPerEngineerPerMonth: number
+  interruptionsPerEngineerPerMonth: number
+  checksPerEngineerPerMonth: number
   engineerAnnualCost: number
   managerAnnualCost: number
   workingWeeks: number
@@ -77,6 +84,14 @@ export interface CategoryResult {
   value: number
 }
 
+export interface AutoVolumes {
+  prsPerMonth: number
+  reportsPerMonth: number
+  researchPerMonth: number
+  interruptionsPerMonth: number
+  checksPerMonth: number
+}
+
 export interface Results {
   engineerHourly: number
   managerHourly: number
@@ -95,4 +110,5 @@ export interface Results {
   expandedValue: number
   expandedNet: number
   expandedRoi: number | null
+  autoVolumes: AutoVolumes
 }

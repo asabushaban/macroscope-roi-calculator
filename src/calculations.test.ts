@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculate, directSavings, fteCapacity, hourlyLoadedCost, meetingResult, prReviewResult, roiMetrics } from './calculations'
+import { autoVolumes, calculate, directSavings, fteCapacity, hourlyLoadedCost, meetingResult, prReviewResult, roiMetrics } from './calculations'
 import { defaults } from './defaults'
 
 describe('core ROI calculations', () => {
@@ -49,5 +49,30 @@ describe('core ROI calculations', () => {
     const on = calculate({ ...defaults, includePotential: true })
     expect(on.totalValue).toBe(off.totalValue)
     expect(on.expandedValue).toBeGreaterThan(on.totalValue)
+  })
+})
+
+describe('team-average auto-calculated volumes', () => {
+  it('multiplies headcount by team-average rates', () => {
+    const volumes = autoVolumes({
+      engineers: 100, managers: 10, prsPerEngineerPerMonth: 30, reportsPerManagerPerMonth: 2,
+      researchQuestionsPerEngineerPerMonth: 2, interruptionsPerEngineerPerMonth: 1, checksPerEngineerPerMonth: 4,
+    })
+    expect(volumes).toEqual({
+      prsPerMonth: 3000, reportsPerMonth: 20, researchPerMonth: 200, interruptionsPerMonth: 100, checksPerMonth: 400,
+    })
+  })
+
+  it('leaves manual-mode results unaffected by the auto-calculated rate fields', () => {
+    const manual = calculate({ ...defaults, volumeMode: 'manual', prsPerEngineerPerMonth: 999 })
+    const baseline = calculate(defaults)
+    expect(manual.categories.prReview).toEqual(baseline.categories.prReview)
+  })
+
+  it('drives PR review volume from headcount in auto mode', () => {
+    const results = calculate({ ...defaults, volumeMode: 'auto', engineers: 100, prsPerEngineerPerMonth: 30 })
+    expect(results.autoVolumes.prsPerMonth).toBe(3000)
+    const expectedHours = 3000 * defaults.reviewMinutesSaved / 60 * defaults.reviewers * 12
+    expect(results.categories.prReview.hours).toBeCloseTo(expectedHours)
   })
 })
