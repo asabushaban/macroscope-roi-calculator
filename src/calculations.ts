@@ -53,6 +53,9 @@ export const roiMetrics = (totalValue: number, annualCost: number) => {
 export const fteCapacity = (hours: number, productiveHours: number) =>
   productiveHours > 0 ? safe(hours) / productiveHours : 0
 
+const gate = (enabled: boolean, result: CategoryResult): CategoryResult =>
+  enabled ? result : { hours: 0, value: 0 }
+
 export function calculate(rawInputs: Inputs): Results {
   const volumes = autoVolumes(rawInputs)
   const i = rawInputs.volumeMode === 'auto' ? { ...rawInputs, ...volumes } : rawInputs
@@ -78,11 +81,25 @@ export function calculate(rawInputs: Inputs): Results {
   const checkHours = safe(i.checksPerMonth) * safe(i.checkMinutes) *
     Math.min(100, safe(i.checkPctEliminated)) / 100 / 60 * 12
   const manualChecks = { hours: checkHours, value: checkHours * engineerHourly }
-  const categories = { meetings, reporting, prReview, autoApproval, research, interruptions, manualChecks }
+  const categories = {
+    meetings: gate(i.includeMeetings, meetings),
+    reporting: gate(i.includeReporting, reporting),
+    prReview: gate(i.includePrReview, prReview),
+    autoApproval: gate(i.includeAutoApproval, autoApproval),
+    research: gate(i.includeResearch, research),
+    interruptions: gate(i.includeInterruptions, interruptions),
+    manualChecks: gate(i.includeManualChecks, manualChecks),
+  }
   const annualHours = Object.values(categories).reduce((sum, item) => sum + item.hours, 0)
   const capacityValue = Object.values(categories).reduce((sum, item) => sum + item.value, 0)
-  const cash = directSavings([i.codeReviewTools, i.reportingTools, i.otherTools, i.contractorReview,
-    i.consultingReporting, i.overtime])
+  const cash = directSavings([
+    i.includeCodeReviewTools ? i.codeReviewTools : 0,
+    i.includeReportingTools ? i.reportingTools : 0,
+    i.includeOtherTools ? i.otherTools : 0,
+    i.includeContractorReview ? i.contractorReview : 0,
+    i.includeConsultingReporting ? i.consultingReporting : 0,
+    i.includeOvertime ? i.overtime : 0,
+  ])
   const annualCost = (i.costMode === 'simple' ? safe(i.monthlyCost) :
     directSavings([i.reviewCost, i.statusCost, i.agentCost, i.macroCost, i.otherCost])) * 12
   const totalValue = cash + capacityValue

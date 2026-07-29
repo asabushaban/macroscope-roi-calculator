@@ -3,7 +3,7 @@ import type { Inputs } from './types'
 export const defaults: Inputs = {
   engineers: 25, managers: 4, engineerAnnualCost: 180000, managerAnnualCost: 220000,
   workingWeeks: 48, workingHours: 40, engineerHourlyOverride: 0, managerHourlyOverride: 0,
-  volumeMode: 'manual',
+  volumeMode: 'auto',
   prsPerEngineerPerMonth: 15, reportsPerManagerPerMonth: 1, researchQuestionsPerEngineerPerMonth: 2,
   interruptionsPerEngineerPerMonth: 1, checksPerEngineerPerMonth: 4,
   codeReviewTools: 0, reportingTools: 0, otherTools: 0, contractorReview: 0,
@@ -25,6 +25,10 @@ export const defaults: Inputs = {
   hiresPerYear: 4, onboardingHoursSaved: 8, onboardingHourlyCost: 0,
   releasesPerYear: 2, weeksAccelerated: 1, weeklyValue: 10000, macroscopeAttribution: 10,
   hiringHours: 0, avoidedHireCost: 180000, hiringConfirmed: false, includePotential: false,
+  includeCodeReviewTools: true, includeReportingTools: true, includeOtherTools: true,
+  includeContractorReview: true, includeConsultingReporting: true, includeOvertime: true,
+  includeMeetings: true, includeReporting: true, includePrReview: true, includeAutoApproval: true,
+  includeResearch: true, includeInterruptions: true, includeManualChecks: true,
 }
 
 export const presets: Record<string, Partial<Inputs>> = {

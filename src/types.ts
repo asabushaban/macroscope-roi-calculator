@@ -77,6 +77,19 @@ export interface Inputs {
   avoidedHireCost: number
   hiringConfirmed: boolean
   includePotential: boolean
+  includeCodeReviewTools: boolean
+  includeReportingTools: boolean
+  includeOtherTools: boolean
+  includeContractorReview: boolean
+  includeConsultingReporting: boolean
+  includeOvertime: boolean
+  includeMeetings: boolean
+  includeReporting: boolean
+  includePrReview: boolean
+  includeAutoApproval: boolean
+  includeResearch: boolean
+  includeInterruptions: boolean
+  includeManualChecks: boolean
 }
 
 export interface CategoryResult {

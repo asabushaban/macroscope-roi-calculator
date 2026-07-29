@@ -75,6 +75,11 @@ input[type="number"] { min-width: 0; width: 100%; border: 0; outline: 0; padding
 .affix { display: grid; place-items: center; padding: 0 10px; color: #71827e; background: #f0f4f2; font-size: 11px; white-space: nowrap; }
 .prefix { border-right: 1px solid #dde5e2; }
 select { height: 40px; border: 1px solid #d7e1dd; border-radius: 7px; background: #fbfcfc; padding: 0 10px; color: var(--ink); outline: none; }
+.field-toggle { display: flex; align-items: flex-end; gap: 8px; }
+.field-toggle .field { flex: 1; }
+.field-toggle.field-disabled { opacity: .5; }
+.include-check { display: flex; align-items: center; height: 40px; }
+.include-check input { width: 15px; height: 15px; cursor: pointer; }
 .tooltip { display: inline-grid; place-items: center; width: 15px; height: 15px; border: 1px solid #9baca7; color: #71827e; border-radius: 50%; font-size: 9px; cursor: help; position: relative; }
 .tooltip:hover::after, .tooltip:focus::after { content: attr(aria-label); position: absolute; z-index: 20; width: 210px; bottom: 22px; left: 50%; transform: translateX(-50%); background: #142d28; color: white; padding: 9px 10px; border-radius: 6px; font-weight: 400; line-height: 1.4; box-shadow: 0 5px 16px #0003; }
 .rate-strip { margin-top: 24px; padding: 18px; border: 1px solid #dce9e5; background: #f5faf8; border-radius: 9px; display: grid; grid-template-columns: 1fr 1.25fr 1fr 1.25fr; gap: 18px; align-items: center; }
@@ -110,8 +115,10 @@ select { height: 40px; border: 1px solid #d7e1dd; border-radius: 7px; background
 .metric-sections summary > b { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 5px; color: #397a69; background: #e7f3ef; font-size: 11px; }
 .metric-sections summary > span { font-size: 13px; font-weight: 600; }
 .metric-sections summary small { font-size: 10px; color: #768984; font-weight: 400; display: block; margin-top: 2px; }
-.metric-sections details > .grid, .metric-sections details > .helper, .metric-sections details > .warning { margin: 0 18px 18px 56px; }
+.metric-sections details > .grid, .metric-sections details > .helper, .metric-sections details > .warning { margin: 0 18px 18px 85px; }
 .metric-sections details[open] summary { margin-bottom: 18px; }
+.category-toggle { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+.category-disabled { opacity: .55; }
 .warning { padding: 9px 12px; border-radius: 6px; background: #fff8e8; color: #765c29; font-size: 11px; line-height: 1.45; }
 .warning.error { background: #fff0ed; color: #9a4334; }
 .segmented { display: inline-flex; padding: 3px; border-radius: 8px; background: #eef2f0; margin-bottom: 20px; }

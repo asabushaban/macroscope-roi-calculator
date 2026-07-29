@@ -65,8 +65,8 @@ describe('team-average auto-calculated volumes', () => {
 
   it('leaves manual-mode results unaffected by the auto-calculated rate fields', () => {
     const manual = calculate({ ...defaults, volumeMode: 'manual', prsPerEngineerPerMonth: 999 })
-    const baseline = calculate(defaults)
-    expect(manual.categories.prReview).toEqual(baseline.categories.prReview)
+    const manualBaseline = calculate({ ...defaults, volumeMode: 'manual' })
+    expect(manual.categories.prReview).toEqual(manualBaseline.categories.prReview)
   })
 
   it('drives PR review volume from headcount in auto mode', () => {
@@ -74,5 +74,31 @@ describe('team-average auto-calculated volumes', () => {
     expect(results.autoVolumes.prsPerMonth).toBe(3000)
     const expectedHours = 3000 * defaults.reviewMinutesSaved / 60 * defaults.reviewers * 12
     expect(results.categories.prReview.hours).toBeCloseTo(expectedHours)
+  })
+})
+
+describe('excluding items from the calculation', () => {
+  it('zeroes out a capacity category when unchecked, without losing other categories', () => {
+    const included = calculate(defaults)
+    const excluded = calculate({ ...defaults, includePrReview: false })
+    expect(excluded.categories.prReview).toEqual({ hours: 0, value: 0 })
+    expect(excluded.capacityValue).toBeCloseTo(included.capacityValue - included.categories.prReview.value)
+    expect(excluded.categories.meetings).toEqual(included.categories.meetings)
+  })
+
+  it('zeroes out a direct cash item when unchecked, without clearing the stored input', () => {
+    const inputs = { ...defaults, codeReviewTools: 5000, includeCodeReviewTools: false }
+    const results = calculate(inputs)
+    expect(results.directSavings).toBe(0)
+    expect(inputs.codeReviewTools).toBe(5000)
+  })
+
+  it('excludes every capacity category when all are unchecked', () => {
+    const results = calculate({
+      ...defaults, includeMeetings: false, includeReporting: false, includePrReview: false,
+      includeAutoApproval: false, includeResearch: false, includeInterruptions: false, includeManualChecks: false,
+    })
+    expect(results.annualHours).toBe(0)
+    expect(results.capacityValue).toBe(0)
   })
 })

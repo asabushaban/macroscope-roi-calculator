@@ -37,6 +37,43 @@ export function Field({ label, name, value, setInput, prefix, suffix, help, step
   )
 }
 
+export function ToggleField({ enabled, enabledName, setInput, ...fieldProps }: FieldProps & {
+  enabled: boolean
+  enabledName: keyof Inputs
+}) {
+  return (
+    <div className={`field-toggle${enabled ? '' : ' field-disabled'}`}>
+      <label className="include-check" title={enabled ? 'Included in calculation' : 'Excluded from calculation'}>
+        <input
+          type="checkbox"
+          checked={enabled}
+          aria-label={`Include ${fieldProps.label} in calculation`}
+          onChange={(event) => setInput(enabledName, event.target.checked as Inputs[typeof enabledName])}
+        />
+      </label>
+      <Field {...fieldProps} setInput={setInput} />
+    </div>
+  )
+}
+
+export function CategoryToggle({ checked, onChange, label }: {
+  checked: boolean
+  onChange: (value: boolean) => void
+  label: string
+}) {
+  return (
+    <input
+      type="checkbox"
+      className="category-toggle"
+      checked={checked}
+      aria-label={`Include ${label} in calculation`}
+      title={checked ? 'Included in calculation' : 'Excluded from calculation'}
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => onChange(event.target.checked)}
+    />
+  )
+}
+
 export function Section({
   number, title, eyebrow, children, defaultOpen = true, className = '',
 }: {
