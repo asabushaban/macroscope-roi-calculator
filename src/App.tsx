@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { calculate } from './calculations'
-import { defaults, presets } from './defaults'
-import { Field, Metric, Section, Tooltip, type SetInput } from './components/Form'
+import { defaults, presets, volumePresets } from './defaults'
+import { AutoReadout, CategoryToggle, Field, Metric, Section, ToggleField, Tooltip, type SetInput } from './components/Form'
 import type { Inputs, Scenario } from './types'
+import logotypeWhite from './assets/brand/logotype-white.svg'
 
 const STORAGE_KEY = 'macroscope-roi-inputs-v1'
+const THEME_KEY = 'macroscope-roi-theme'
+type Theme = 'light' | 'dark'
+
+function loadTheme(): Theme {
+  try {
+    const saved = localStorage.getItem(THEME_KEY)
+    if (saved === 'light' || saved === 'dark') return saved
+  } catch { /* Ignore unavailable storage. */ }
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
 const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 })
 const pct = (value: number | null) => value === null ? 'Not available' : `${number.format(value)}%`
@@ -28,6 +39,7 @@ export function hasPrDoubleCountingRisk(inputs: Pick<Inputs, 'prsPerMonth' | 'au
 
 function App() {
   const [inputs, setInputs] = useState<Inputs>(loadInputs)
+  const [theme, setTheme] = useState<Theme>(loadTheme)
   const results = useMemo(() => calculate(inputs), [inputs])
   const roleTotalValid = inputs.meetingManagerPct + inputs.meetingEngineerPct === 100
   const overlapRisk = hasPrDoubleCountingRisk(inputs)
@@ -36,12 +48,22 @@ function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(inputs))
   }, [inputs])
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem(THEME_KEY, theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme((current) => current === 'dark' ? 'light' : 'dark')
+
   const setInput: SetInput = (key, value) => setInputs((current) => ({ ...current, [key]: value }))
   const setScenario = (field: 'defectEscapePct' | 'defectCost', scenario: Scenario, value: number) =>
     setInputs((current) => ({ ...current, [field]: { ...current[field], [scenario]: Math.max(0, value) } }))
 
   const applyPreset = (name: keyof typeof presets) =>
     setInputs((current) => ({ ...current, ...presets[name] }))
+
+  const applyVolumePreset = (name: keyof typeof volumePresets) =>
+    setInputs((current) => ({ ...current, ...volumePresets[name] }))
 
   const reset = () => {
     if (window.confirm('Reset all calculator inputs to their defaults?')) {
@@ -88,9 +110,19 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
       <header className="hero">
         <nav>
           <a className="brand" href="#top" aria-label="Macroscope ROI calculator home">
-            <span className="brand-mark">M</span><span>MACROSCOPE</span>
+            <img className="brand-logo" src={logotypeWhite} alt="Macroscope" />
           </a>
-          <span className="saved"><i /> Saved locally</span>
+          <div className="nav-actions">
+            <span className="saved"><i /> Saved locally</span>
+            <button
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {theme === 'dark' ? '☀' : '☾'}
+            </button>
+          </div>
         </nav>
         <div className="hero-content" id="top">
           <div>
@@ -137,6 +169,26 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
             <div><span>CALCULATED MANAGER RATE <Tooltip text="Annual loaded cost divided by productive weeks and hours." /></span><b>{currency.format(results.managerHourly)} / hr</b></div>
             <Field label="Override manager rate (optional)" name="managerHourlyOverride" value={inputs.managerHourlyOverride} setInput={setInput} prefix="$" suffix="/ hr" />
           </div>
+          <div className="volume-mode">
+            <div>
+              <b>Measurable capacity volumes <Tooltip text="Controls how PR review, reporting, research, interruption, and manual-check volumes in section 03 are determined." /></b>
+              <span>Auto-calculate multiplies team-average rates below by your headcount above, instead of entering each monthly total by hand.</span>
+            </div>
+            <div className="segmented">
+              <button className={inputs.volumeMode === 'manual' ? 'active' : ''} onClick={() => setInput('volumeMode', 'manual')}>Manual entry</button>
+              <button className={inputs.volumeMode === 'auto' ? 'active' : ''} onClick={() => setInput('volumeMode', 'auto')}>Auto-calculate</button>
+            </div>
+          </div>
+          {inputs.volumeMode === 'auto' && (
+            <div className="volume-presets">
+              <span>Team-average benchmark:</span>
+              <div className="preset-buttons">
+                <button onClick={() => applyVolumePreset('conservative')}>Conservative</button>
+                <button onClick={() => applyVolumePreset('typical')}>Typical</button>
+                <button onClick={() => applyVolumePreset('highVelocity')}>High-velocity</button>
+              </div>
+            </div>
+          )}
         </Section>
 
         <Section number="02" title="Direct cash savings" eyebrow="HIGH CONFIDENCE" className="cash-section">
@@ -144,15 +196,15 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
           <div className="split">
             <div>
               <h3>Existing software replaced</h3>
-              <Field label="Code review tools" name="codeReviewTools" value={inputs.codeReviewTools} setInput={setInput} prefix="$" suffix="/ year" />
-              <Field label="Engineering reporting tools" name="reportingTools" value={inputs.reportingTools} setInput={setInput} prefix="$" suffix="/ year" />
-              <Field label="Other tools" name="otherTools" value={inputs.otherTools} setInput={setInput} prefix="$" suffix="/ year" />
+              <ToggleField label="Code review tools" name="codeReviewTools" value={inputs.codeReviewTools} setInput={setInput} prefix="$" suffix="/ year" enabled={inputs.includeCodeReviewTools} enabledName="includeCodeReviewTools" />
+              <ToggleField label="Engineering reporting tools" name="reportingTools" value={inputs.reportingTools} setInput={setInput} prefix="$" suffix="/ year" enabled={inputs.includeReportingTools} enabledName="includeReportingTools" />
+              <ToggleField label="Other tools" name="otherTools" value={inputs.otherTools} setInput={setInput} prefix="$" suffix="/ year" enabled={inputs.includeOtherTools} enabledName="includeOtherTools" />
             </div>
             <div>
               <h3>External labor reduced</h3>
-              <Field label="Contractor / outsourced review" name="contractorReview" value={inputs.contractorReview} setInput={setInput} prefix="$" suffix="/ year" />
-              <Field label="Consulting / reporting" name="consultingReporting" value={inputs.consultingReporting} setInput={setInput} prefix="$" suffix="/ year" />
-              <Field label="Overtime spend" name="overtime" value={inputs.overtime} setInput={setInput} prefix="$" suffix="/ year" />
+              <ToggleField label="Contractor / outsourced review" name="contractorReview" value={inputs.contractorReview} setInput={setInput} prefix="$" suffix="/ year" enabled={inputs.includeContractorReview} enabledName="includeContractorReview" />
+              <ToggleField label="Consulting / reporting" name="consultingReporting" value={inputs.consultingReporting} setInput={setInput} prefix="$" suffix="/ year" enabled={inputs.includeConsultingReporting} enabledName="includeConsultingReporting" />
+              <ToggleField label="Overtime spend" name="overtime" value={inputs.overtime} setInput={setInput} prefix="$" suffix="/ year" enabled={inputs.includeOvertime} enabledName="includeOvertime" />
             </div>
           </div>
           <div className="subtotal"><span>Annual direct cash savings</span><strong>{currency.format(results.directSavings)}</strong></div>
@@ -161,8 +213,8 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
         <Section number="03" title="Measurable capacity returned" eyebrow="EMPLOYEE TIME" className="capacity-section">
           <div className="classification capacity"><span>CAPACITY VALUE <Tooltip text="The loaded value of employee hours returned to higher-value work; not necessarily payroll savings." /></span><p>Measures employee time returned to higher-value work. It does not imply a reduction in payroll.</p></div>
           <div className="metric-sections">
-            <details open>
-              <summary><b>A</b><span>Meetings shortened or eliminated<small>{number.format(results.categories.meetings.hours)} hours · {currency.format(results.categories.meetings.value)}</small></span></summary>
+            <details open className={inputs.includeMeetings ? '' : 'category-disabled'}>
+              <summary><CategoryToggle checked={inputs.includeMeetings} onChange={(v) => setInput('includeMeetings', v)} label="Meetings shortened or eliminated" /><b>A</b><span>Meetings shortened or eliminated<small>{number.format(results.categories.meetings.hours)} hours · {currency.format(results.categories.meetings.value)}</small></span></summary>
               <div className="grid four">
                 <Field label="Status meetings / month" name="meetingsPerMonth" value={inputs.meetingsPerMonth} setInput={setInput} />
                 <Field label="Attendees / meeting" name="meetingAttendees" value={inputs.meetingAttendees} setInput={setInput} />
@@ -173,28 +225,42 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
               </div>
               {!roleTotalValid && <div className="warning error">Manager and engineer percentages must total 100%. The current total is {inputs.meetingManagerPct + inputs.meetingEngineerPct}%.</div>}
             </details>
-            <details>
-              <summary><b>B</b><span>Status report preparation<small>{number.format(results.categories.reporting.hours)} hours · {currency.format(results.categories.reporting.value)}</small></span></summary>
+            <details className={inputs.includeReporting ? '' : 'category-disabled'}>
+              <summary><CategoryToggle checked={inputs.includeReporting} onChange={(v) => setInput('includeReporting', v)} label="Status report preparation" /><b>B</b><span>Status report preparation<small>{number.format(results.categories.reporting.hours)} hours · {currency.format(results.categories.reporting.value)}</small></span></summary>
               <div className="grid four">
-                <Field label="Reports / month" name="reportsPerMonth" value={inputs.reportsPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Reports / month (auto)" value={number.format(results.autoVolumes.reportsPerMonth)} />
+                    <Field label="Reports / manager / month" name="reportsPerManagerPerMonth" value={inputs.reportsPerManagerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Reports / month" name="reportsPerMonth" value={inputs.reportsPerMonth} setInput={setInput} />
+                )}
                 <Field label="Preparation time / report" name="reportPrepHours" value={inputs.reportPrepHours} setInput={setInput} suffix="hours" step={0.25} />
                 <Field label="People involved" name="reportPeople" value={inputs.reportPeople} setInput={setInput} />
                 <label className="field"><span className="field-label">Role performing work</span><select value={inputs.reportRole} onChange={e => setInput('reportRole', e.target.value as Inputs['reportRole'])}><option value="engineer">Engineer</option><option value="manager">Engineering manager</option><option value="custom">Custom blended rate</option></select></label>
                 {inputs.reportRole === 'custom' && <Field label="Custom blended rate" name="reportCustomRate" value={inputs.reportCustomRate} setInput={setInput} prefix="$" suffix="/ hr" />}
               </div>
             </details>
-            <details>
-              <summary><b>C</b><span>Human PR review time reduced<small>{number.format(results.categories.prReview.hours)} hours · {currency.format(results.categories.prReview.value)}</small></span></summary>
+            <details className={inputs.includePrReview ? '' : 'category-disabled'}>
+              <summary><CategoryToggle checked={inputs.includePrReview} onChange={(v) => setInput('includePrReview', v)} label="Human PR review time reduced" /><b>C</b><span>Human PR review time reduced<small>{number.format(results.categories.prReview.hours)} hours · {currency.format(results.categories.prReview.value)}</small></span></summary>
               <div className="grid four">
-                <Field label="PRs reviewed / month" name="prsPerMonth" value={inputs.prsPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="PRs reviewed / month (auto)" value={number.format(results.autoVolumes.prsPerMonth)} />
+                    <Field label="PRs / engineer / month" name="prsPerEngineerPerMonth" value={inputs.prsPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="PRs reviewed / month" name="prsPerMonth" value={inputs.prsPerMonth} setInput={setInput} />
+                )}
                 <Field label="Current review time / PR" name="reviewMinutes" value={inputs.reviewMinutes} setInput={setInput} suffix="min" />
                 <Field label="Minutes saved / PR" name="reviewMinutesSaved" value={inputs.reviewMinutesSaved} setInput={setInput} suffix="min" />
                 <Field label="Human reviewers / PR" name="reviewers" value={inputs.reviewers} setInput={setInput} step={0.1} />
                 <Field label="Custom reviewer rate (optional)" name="reviewerCustomRate" value={inputs.reviewerCustomRate} setInput={setInput} prefix="$" suffix="/ hr" help="Leave at zero to use the engineer hourly rate." />
               </div>
             </details>
-            <details>
-              <summary><b>D</b><span>Reviews avoided through auto-approval<small>{number.format(results.categories.autoApproval.hours)} hours · {currency.format(results.categories.autoApproval.value)}</small></span></summary>
+            <details className={inputs.includeAutoApproval ? '' : 'category-disabled'}>
+              <summary><CategoryToggle checked={inputs.includeAutoApproval} onChange={(v) => setInput('includeAutoApproval', v)} label="Reviews avoided through auto-approval" /><b>D</b><span>Reviews avoided through auto-approval<small>{number.format(results.categories.autoApproval.hours)} hours · {currency.format(results.categories.autoApproval.value)}</small></span></summary>
               <div className="warning">Avoid entering the same PRs here and in general PR review savings.</div>
               {overlapRisk && <div className="warning error" data-testid="double-count-warning">Both PR categories contain values. Confirm that these are distinct PR populations.</div>}
               <div className="grid three">
@@ -203,29 +269,50 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
                 <Field label="Reviewers otherwise required" name="autoReviewers" value={inputs.autoReviewers} setInput={setInput} step={0.1} />
               </div>
             </details>
-            <details>
-              <summary><b>E</b><span>Codebase research time reduced<small>{number.format(results.categories.research.hours)} hours · {currency.format(results.categories.research.value)}</small></span></summary>
+            <details className={inputs.includeResearch ? '' : 'category-disabled'}>
+              <summary><CategoryToggle checked={inputs.includeResearch} onChange={(v) => setInput('includeResearch', v)} label="Codebase research time reduced" /><b>E</b><span>Codebase research time reduced<small>{number.format(results.categories.research.hours)} hours · {currency.format(results.categories.research.value)}</small></span></summary>
               <div className="grid three">
-                <Field label="Questions / investigations monthly" name="researchPerMonth" value={inputs.researchPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Questions / month (auto)" value={number.format(results.autoVolumes.researchPerMonth)} />
+                    <Field label="Questions / engineer / month" name="researchQuestionsPerEngineerPerMonth" value={inputs.researchQuestionsPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Questions / investigations monthly" name="researchPerMonth" value={inputs.researchPerMonth} setInput={setInput} />
+                )}
                 <Field label="Manual research time" name="researchMinutes" value={inputs.researchMinutes} setInput={setInput} suffix="min" />
                 <Field label="Estimated time saved" name="researchMinutesSaved" value={inputs.researchMinutesSaved} setInput={setInput} suffix="min" />
               </div>
             </details>
-            <details>
-              <summary><b>F</b><span>Engineer interruptions avoided<small>{number.format(results.categories.interruptions.hours)} hours · {currency.format(results.categories.interruptions.value)}</small></span></summary>
+            <details className={inputs.includeInterruptions ? '' : 'category-disabled'}>
+              <summary><CategoryToggle checked={inputs.includeInterruptions} onChange={(v) => setInput('includeInterruptions', v)} label="Engineer interruptions avoided" /><b>F</b><span>Engineer interruptions avoided<small>{number.format(results.categories.interruptions.hours)} hours · {currency.format(results.categories.interruptions.value)}</small></span></summary>
               <p className="helper">Use only when Macroscope replaces asking another engineer—not when research savings already capture the same work.</p>
               <div className="grid four">
-                <Field label="Interruptions avoided / month" name="interruptionsPerMonth" value={inputs.interruptionsPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Interruptions / month (auto)" value={number.format(results.autoVolumes.interruptionsPerMonth)} />
+                    <Field label="Interruptions / engineer / month" name="interruptionsPerEngineerPerMonth" value={inputs.interruptionsPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Interruptions avoided / month" name="interruptionsPerMonth" value={inputs.interruptionsPerMonth} setInput={setInput} />
+                )}
                 <Field label="Interruption duration" name="interruptionMinutes" value={inputs.interruptionMinutes} setInput={setInput} suffix="min" />
                 <Field label="Context-switch recovery" name="recoveryMinutes" value={inputs.recoveryMinutes} setInput={setInput} suffix="min" />
                 <Field label="Engineers interrupted" name="engineersInterrupted" value={inputs.engineersInterrupted} setInput={setInput} />
               </div>
             </details>
-            <details>
-              <summary><b>G</b><span>Existing manual checks automated<small>{number.format(results.categories.manualChecks.hours)} hours · {currency.format(results.categories.manualChecks.value)}</small></span></summary>
+            <details className={inputs.includeManualChecks ? '' : 'category-disabled'}>
+              <summary><CategoryToggle checked={inputs.includeManualChecks} onChange={(v) => setInput('includeManualChecks', v)} label="Existing manual checks automated" /><b>G</b><span>Existing manual checks automated<small>{number.format(results.categories.manualChecks.hours)} hours · {currency.format(results.categories.manualChecks.value)}</small></span></summary>
               <p className="helper">Only existing manual checks represent labor savings. Newly added checks are additional coverage.</p>
               <div className="grid three">
-                <Field label="Existing checks / month" name="checksPerMonth" value={inputs.checksPerMonth} setInput={setInput} />
+                {inputs.volumeMode === 'auto' ? (
+                  <>
+                    <AutoReadout label="Existing checks / month (auto)" value={number.format(results.autoVolumes.checksPerMonth)} />
+                    <Field label="Checks / engineer / month" name="checksPerEngineerPerMonth" value={inputs.checksPerEngineerPerMonth} setInput={setInput} step={0.1} />
+                  </>
+                ) : (
+                  <Field label="Existing checks / month" name="checksPerMonth" value={inputs.checksPerMonth} setInput={setInput} />
+                )}
                 <Field label="Manual minutes / check" name="checkMinutes" value={inputs.checkMinutes} setInput={setInput} suffix="min" />
                 <Field label="Manual work eliminated" name="checkPctEliminated" value={inputs.checkPctEliminated} setInput={setInput} suffix="%" max={100} />
               </div>
@@ -333,6 +420,7 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
             <p><b>Capacity value</b> represents the loaded value of employee time returned to higher-value work. It is not necessarily payroll savings or headcount reduction.</p>
             <p><b>Potential impact</b> depends on assumptions about downstream outcomes. It is kept separate and should be validated through a pilot.</p>
             <p><b>Customer-specific data</b> should be used wherever possible. Example presets are illustrative, not benchmarks.</p>
+            <p><b>Auto-calculated volumes</b> (section 03) multiply your organization profile's engineer or manager count by a team-average monthly rate, instead of requiring an org-wide total. The "Typical" benchmark uses ~15 PRs reviewed per engineer per month, in line with LinearB's 2025 engineering benchmarks (median teams ~12/month, "good" teams 13-22/month). Interruption frequency is deliberately a small fraction of general context-switching research (12-15 switches/day per developer, per UC Irvine/Gloria Mark-style studies), since this field only covers interruptions Macroscope specifically eliminates. Reporting, research-question, and manual-check rates scale this calculator's own conservative baseline rather than a single external benchmark. Meeting cadence and auto-approved PR volume are intentionally excluded from auto-calculation since they don't scale linearly with headcount.</p>
             <p><b>Double counting</b> is avoided through separate categories and warnings, but users should confirm that the same work or outcome is not entered more than once.</p>
             <p><b>No guarantee.</b> Results are estimates based entirely on the inputs provided and should not be interpreted as guaranteed savings or outcomes.</p>
           </div>
@@ -343,7 +431,7 @@ This estimate is based on the inputs and assumptions provided. Capacity value is
           <div><button className="secondary" onClick={() => window.print()}>Print results</button><button className="primary" onClick={exportSummary}>Export summary ↓</button></div>
         </div>
       </main>
-      <footer><span className="brand"><span className="brand-mark">M</span><span>MACROSCOPE</span></span><p>Conservative ROI modeling for engineering organizations.</p><small>Estimates only. Not a guarantee of results.</small></footer>
+      <footer><span className="brand"><img className="brand-logo" src={logotypeWhite} alt="Macroscope" /></span><p>Conservative ROI modeling for engineering organizations.</p><small>Estimates only. Not a guarantee of results.</small></footer>
     </>
   )
 }
