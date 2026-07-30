@@ -1,10 +1,17 @@
 export type Scenario = 'conservative' | 'expected' | 'high'
 export type ReportRole = 'engineer' | 'manager' | 'custom'
 export type CostMode = 'simple' | 'detailed'
+export type VolumeMode = 'manual' | 'auto'
 
 export interface Inputs {
   engineers: number
   managers: number
+  volumeMode: VolumeMode
+  prsPerEngineerPerMonth: number
+  reportsPerManagerPerMonth: number
+  researchQuestionsPerEngineerPerMonth: number
+  interruptionsPerEngineerPerMonth: number
+  checksPerEngineerPerMonth: number
   engineerAnnualCost: number
   managerAnnualCost: number
   workingWeeks: number
@@ -70,11 +77,32 @@ export interface Inputs {
   avoidedHireCost: number
   hiringConfirmed: boolean
   includePotential: boolean
+  includeCodeReviewTools: boolean
+  includeReportingTools: boolean
+  includeOtherTools: boolean
+  includeContractorReview: boolean
+  includeConsultingReporting: boolean
+  includeOvertime: boolean
+  includeMeetings: boolean
+  includeReporting: boolean
+  includePrReview: boolean
+  includeAutoApproval: boolean
+  includeResearch: boolean
+  includeInterruptions: boolean
+  includeManualChecks: boolean
 }
 
 export interface CategoryResult {
   hours: number
   value: number
+}
+
+export interface AutoVolumes {
+  prsPerMonth: number
+  reportsPerMonth: number
+  researchPerMonth: number
+  interruptionsPerMonth: number
+  checksPerMonth: number
 }
 
 export interface Results {
@@ -95,4 +123,5 @@ export interface Results {
   expandedValue: number
   expandedNet: number
   expandedRoi: number | null
+  autoVolumes: AutoVolumes
 }

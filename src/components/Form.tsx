@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { Inputs } from '../types'
 
 export type SetInput = <K extends keyof Inputs>(key: K, value: Inputs[K]) => void
@@ -37,6 +38,43 @@ export function Field({ label, name, value, setInput, prefix, suffix, help, step
   )
 }
 
+export function ToggleField({ enabled, enabledName, setInput, ...fieldProps }: FieldProps & {
+  enabled: boolean
+  enabledName: keyof Inputs
+}) {
+  return (
+    <div className={`field-toggle${enabled ? '' : ' field-disabled'}`}>
+      <label className="include-check" title={enabled ? 'Included in calculation' : 'Excluded from calculation'}>
+        <input
+          type="checkbox"
+          checked={enabled}
+          aria-label={`Include ${fieldProps.label} in calculation`}
+          onChange={(event) => setInput(enabledName, event.target.checked as Inputs[typeof enabledName])}
+        />
+      </label>
+      <Field {...fieldProps} setInput={setInput} />
+    </div>
+  )
+}
+
+export function CategoryToggle({ checked, onChange, label }: {
+  checked: boolean
+  onChange: (value: boolean) => void
+  label: string
+}) {
+  return (
+    <input
+      type="checkbox"
+      className="category-toggle"
+      checked={checked}
+      aria-label={`Include ${label} in calculation`}
+      title={checked ? 'Included in calculation' : 'Excluded from calculation'}
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => onChange(event.target.checked)}
+    />
+  )
+}
+
 export function Section({
   number, title, eyebrow, children, defaultOpen = true, className = '',
 }: {
@@ -60,7 +98,42 @@ export function Section({
 }
 
 export function Tooltip({ text }: { text: string }) {
-  return <span className="tooltip" tabIndex={0} aria-label={text}>?</span>
+  const [coords, setCoords] = useState<{ top: number, left: number } | null>(null)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  const show = () => {
+    const rect = ref.current?.getBoundingClientRect()
+    if (rect) setCoords({ top: rect.top, left: rect.left + rect.width / 2 })
+  }
+  const hide = () => setCoords(null)
+
+  return (
+    <>
+      <span
+        ref={ref}
+        className="tooltip"
+        tabIndex={0}
+        aria-label={text}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+      >?</span>
+      {coords && createPortal(
+        <div className="tooltip-popup" role="tooltip" style={{ top: coords.top, left: coords.left }}>{text}</div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
+export function AutoReadout({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="auto-readout">
+      <span>{label}</span>
+      <b>{value}</b>
+    </div>
+  )
 }
 
 export function Metric({ label, value, note, tone = 'neutral', prominent = false }: {

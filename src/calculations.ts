@@ -1,6 +1,23 @@
-import type { CategoryResult, Inputs, Results, Scenario } from './types'
+import type { AutoVolumes, CategoryResult, Inputs, Results, Scenario } from './types'
 
 const safe = (value: number) => Math.max(0, Number.isFinite(value) ? value : 0)
+
+// Meetings and auto-approved PRs are excluded: meeting cadence doesn't scale
+// linearly with headcount, and auto-approval volume is pilot-specific, not a team average.
+export function autoVolumes(i: Pick<Inputs,
+  'engineers' | 'managers' | 'prsPerEngineerPerMonth' | 'reportsPerManagerPerMonth' |
+  'researchQuestionsPerEngineerPerMonth' | 'interruptionsPerEngineerPerMonth' | 'checksPerEngineerPerMonth'
+>): AutoVolumes {
+  const engineers = safe(i.engineers)
+  const managers = safe(i.managers)
+  return {
+    prsPerMonth: Math.round(engineers * safe(i.prsPerEngineerPerMonth)),
+    reportsPerMonth: Math.round(managers * safe(i.reportsPerManagerPerMonth)),
+    researchPerMonth: Math.round(engineers * safe(i.researchQuestionsPerEngineerPerMonth)),
+    interruptionsPerMonth: Math.round(engineers * safe(i.interruptionsPerEngineerPerMonth)),
+    checksPerMonth: Math.round(engineers * safe(i.checksPerEngineerPerMonth)),
+  }
+}
 export const hourlyLoadedCost = (annual: number, weeks: number, hours: number) =>
   weeks > 0 && hours > 0 ? safe(annual) / weeks / hours : 0
 
@@ -36,7 +53,12 @@ export const roiMetrics = (totalValue: number, annualCost: number) => {
 export const fteCapacity = (hours: number, productiveHours: number) =>
   productiveHours > 0 ? safe(hours) / productiveHours : 0
 
-export function calculate(i: Inputs): Results {
+const gate = (enabled: boolean, result: CategoryResult): CategoryResult =>
+  enabled ? result : { hours: 0, value: 0 }
+
+export function calculate(rawInputs: Inputs): Results {
+  const volumes = autoVolumes(rawInputs)
+  const i = rawInputs.volumeMode === 'auto' ? { ...rawInputs, ...volumes } : rawInputs
   const calculatedEngineerRate = hourlyLoadedCost(i.engineerAnnualCost, i.workingWeeks, i.workingHours)
   const calculatedManagerRate = hourlyLoadedCost(i.managerAnnualCost, i.workingWeeks, i.workingHours)
   const engineerHourly = i.engineerHourlyOverride > 0 ? i.engineerHourlyOverride : calculatedEngineerRate
@@ -59,11 +81,25 @@ export function calculate(i: Inputs): Results {
   const checkHours = safe(i.checksPerMonth) * safe(i.checkMinutes) *
     Math.min(100, safe(i.checkPctEliminated)) / 100 / 60 * 12
   const manualChecks = { hours: checkHours, value: checkHours * engineerHourly }
-  const categories = { meetings, reporting, prReview, autoApproval, research, interruptions, manualChecks }
+  const categories = {
+    meetings: gate(i.includeMeetings, meetings),
+    reporting: gate(i.includeReporting, reporting),
+    prReview: gate(i.includePrReview, prReview),
+    autoApproval: gate(i.includeAutoApproval, autoApproval),
+    research: gate(i.includeResearch, research),
+    interruptions: gate(i.includeInterruptions, interruptions),
+    manualChecks: gate(i.includeManualChecks, manualChecks),
+  }
   const annualHours = Object.values(categories).reduce((sum, item) => sum + item.hours, 0)
   const capacityValue = Object.values(categories).reduce((sum, item) => sum + item.value, 0)
-  const cash = directSavings([i.codeReviewTools, i.reportingTools, i.otherTools, i.contractorReview,
-    i.consultingReporting, i.overtime])
+  const cash = directSavings([
+    i.includeCodeReviewTools ? i.codeReviewTools : 0,
+    i.includeReportingTools ? i.reportingTools : 0,
+    i.includeOtherTools ? i.otherTools : 0,
+    i.includeContractorReview ? i.contractorReview : 0,
+    i.includeConsultingReporting ? i.consultingReporting : 0,
+    i.includeOvertime ? i.overtime : 0,
+  ])
   const annualCost = (i.costMode === 'simple' ? safe(i.monthlyCost) :
     directSavings([i.reviewCost, i.statusCost, i.agentCost, i.macroCost, i.otherCost])) * 12
   const totalValue = cash + capacityValue
@@ -91,6 +127,6 @@ export function calculate(i: Inputs): Results {
     engineerHourly, managerHourly, directSavings: cash, categories, annualHours, capacityValue,
     totalValue, annualCost, netValue: metrics.net, roi: metrics.roi, payback: metrics.payback,
     fte: fteCapacity(annualHours, productiveHours), potential, hiringFte, expandedValue,
-    expandedNet: expandedMetrics.net, expandedRoi: expandedMetrics.roi,
+    expandedNet: expandedMetrics.net, expandedRoi: expandedMetrics.roi, autoVolumes: volumes,
   }
 }
